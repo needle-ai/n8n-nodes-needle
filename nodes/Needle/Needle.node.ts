@@ -66,6 +66,11 @@ export class Needle implements INodeType {
 						value: 'search',
 						action: 'Search a collection',
 					},
+					{
+						name: 'Add Files',
+						value: 'add_files',
+						action: 'Add files to a collection',
+					},
 				],
 				default: 'search',
 			},
@@ -78,7 +83,7 @@ export class Needle implements INodeType {
 				default: '',
 				displayOptions: {
 					show: {
-						operation: ['search'],
+						operation: ['search', 'add_files'],
 						resource: ['collection'],
 					},
 				},
@@ -98,14 +103,48 @@ export class Needle implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Files',
+				name: 'files',
+				type: 'fixedCollection',
+				placeholder: 'Add File',
+				default: {},
+				typeOptions: {
+					multipleValues: true,
+				},
+				options: [
+					{
+						displayName: 'File',
+						name: 'file',
+						values: [
+							{
+								displayName: 'Name',
+								name: 'name',
+								type: 'string',
+								default: '',
+							},
+							{
+								displayName: 'URL',
+								name: 'url',
+								type: 'string',
+								default: '',
+							},
+						],
+					},
+				],
+				displayOptions: {
+					show: {
+						operation: ['add_files'],
+						resource: ['collection'],
+					},
+				},
+			},
 		],
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const resource = this.getNodeParameter('resource', 0);
 		const operation = this.getNodeParameter('operation', 0);
-
-		console.log({ resource, operation });
 
 		const items = this.getInputData();
 		const responseData: INodeExecutionData[] = [];
@@ -115,10 +154,18 @@ export class Needle implements INodeType {
 				switch (resource) {
 					case 'collection':
 						switch (operation) {
-							case 'list':
-								await listCollections(this, i);
-							case 'search':
-								await searchCollection(this, i);
+							case 'list': {
+								const rd = await listCollections(this, i);
+								responseData.push(...rd);
+							}
+							case 'search': {
+								const rd = await searchCollection(this, i);
+								responseData.push(...rd);
+							}
+							case 'add_files': {
+								const rd = await addFilesToCollection(this, i);
+								responseData.push(...rd);
+							}
 						}
 				}
 			} catch (error) {
@@ -168,6 +215,25 @@ async function searchCollection(
 	}
 	const ndl = new NeedleApi.Needle({ apiKey });
 	const results = await ndl.collections.search({ collection_id, text: prompt });
+	results.forEach((r) => responseData.push({ json: r, index: index }));
+	return responseData;
+}
+
+async function addFilesToCollection(
+	functions: IExecuteFunctions,
+	index: number,
+): Promise<INodeExecutionData[]> {
+	const responseData: INodeExecutionData[] = [];
+	const collection_id = functions.getNodeParameter('collection_id', index) as string;
+	type File = { name: string; url: string };
+	const files = functions.getNodeParameter('files.file', 0, []) as File[];
+	const credentials = await functions.getCredentials('needleApi', index);
+	const apiKey = credentials['api_key'] as string;
+	if (!apiKey) {
+		throw Error('API Key is required');
+	}
+	const ndl = new NeedleApi.Needle({ apiKey });
+	const results = await ndl.collections.files.add({ collection_id, files });
 	results.forEach((r) => responseData.push({ json: r, index: index }));
 	return responseData;
 }
