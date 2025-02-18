@@ -11,7 +11,7 @@ export class NeedleNode implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Needle',
 		name: 'needle',
-		icon: 'file:needle.png',
+		icon: 'file:needle-logo-black.svg',
 		group: ['search'],
 		version: 1,
 		description: 'Search your collections on Needle',
